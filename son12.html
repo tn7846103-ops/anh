@@ -3,7 +3,12 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>📸 Tải ảnh lên & Đánh giá (có lưu trữ)</title>
+    <title>📸 Tải ảnh lên & Đánh giá (Đồng bộ đám mây)</title>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    
     <style>
         * {
             box-sizing: border-box;
@@ -44,6 +49,26 @@
             font-weight: 400;
             color: #475569;
             margin-left: 8px;
+        }
+        .sync-status {
+            background: #dbeafe;
+            color: #1e40af;
+            padding: 6px 18px;
+            border-radius: 30px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: 12px;
+        }
+        .sync-status.synced {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .sync-status.error {
+            background: #fee2e2;
+            color: #991b1b;
         }
         .upload-area {
             background: #ffffffcc;
@@ -91,37 +116,6 @@
             font-weight: 500;
             font-size: 0.95rem;
         }
-        .storage-info {
-            display: flex;
-            gap: 12px;
-            align-items: center;
-            margin-top: 8px;
-            width: 100%;
-            justify-content: center;
-        }
-        .storage-info span {
-            background: #dbeafe;
-            color: #1e40af;
-            padding: 4px 16px;
-            border-radius: 30px;
-            font-size: 0.8rem;
-            font-weight: 500;
-        }
-        .clear-storage-btn {
-            background: none;
-            border: 1px solid #cbd5e1;
-            padding: 4px 16px;
-            border-radius: 30px;
-            color: #64748b;
-            font-size: 0.8rem;
-            cursor: pointer;
-            transition: 0.15s;
-        }
-        .clear-storage-btn:hover {
-            background: #fee2e2;
-            border-color: #ef4444;
-            color: #b91c1c;
-        }
         .gallery {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -152,6 +146,9 @@
             cursor: pointer;
             transition: 0.1s;
             border-bottom: 2px solid #f1f5f9;
+        }
+        .photo-card img:hover {
+            opacity: 0.9;
         }
         .photo-card img:active {
             opacity: 0.7;
@@ -202,6 +199,10 @@
             transform: scale(1.2);
             color: #f59e0b;
         }
+        .star-btn.loading {
+            opacity: 0.5;
+            pointer-events: none;
+        }
         .rating-value {
             font-weight: 500;
             color: #1e293b;
@@ -231,6 +232,10 @@
         .review-textarea::placeholder {
             color: #94a3b8;
         }
+        .review-textarea.loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
         .card-actions {
             display: flex;
             justify-content: flex-end;
@@ -252,6 +257,10 @@
             background: #fee2e2;
             color: #b91c1c;
         }
+        .delete-btn.loading {
+            opacity: 0.5;
+            pointer-events: none;
+        }
         .empty-message {
             grid-column: 1 / -1;
             text-align: center;
@@ -270,11 +279,128 @@
             padding-top: 2rem;
             opacity: 0.8;
         }
+        .loading-overlay {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+            color: #475569;
+        }
+        .loading-overlay.active {
+            display: block;
+        }
+        .spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e2e8f0;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 12px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* ===== MODAL XEM ẢNH TO ===== */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.92);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+            animation: fadeIn 0.3s ease;
+        }
+        .modal-overlay.active {
+            display: flex;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .modal-content {
+            position: relative;
+            max-width: 90vw;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            animation: zoomIn 0.3s ease;
+        }
+        @keyframes zoomIn {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        .modal-content img {
+            max-width: 90vw;
+            max-height: 80vh;
+            object-fit: contain;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            background: #1a1a2e;
+        }
+        .modal-close {
+            position: absolute;
+            top: -50px;
+            right: -10px;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 2.5rem;
+            cursor: pointer;
+            transition: 0.2s;
+            padding: 0 12px;
+            line-height: 1;
+            opacity: 0.8;
+        }
+        .modal-close:hover {
+            opacity: 1;
+            transform: rotate(90deg);
+        }
+        .modal-info {
+            color: white;
+            margin-top: 16px;
+            text-align: center;
+            font-size: 1rem;
+            opacity: 0.8;
+            max-width: 80vw;
+        }
+        .modal-info .modal-name {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+        .modal-info .modal-rating {
+            margin-top: 6px;
+            color: #fbbf24;
+            font-size: 1.2rem;
+        }
+        .modal-info .modal-review {
+            margin-top: 6px;
+            color: #cbd5e1;
+            font-style: italic;
+        }
         @media (max-width: 640px) {
             .container { padding: 1.5rem 1rem; }
             .upload-area { flex-direction: column; gap: 16px; align-items: stretch; }
             .upload-label { justify-content: center; }
             .file-count { text-align: center; }
+            h1 { font-size: 1.8rem; }
+            .modal-content img {
+                max-width: 95vw;
+                max-height: 70vh;
+            }
+            .modal-close {
+                top: -40px;
+                right: 0;
+                font-size: 2rem;
+            }
         }
     </style>
 </head>
@@ -282,7 +408,8 @@
 <div class="container">
     <h1>
         🖼️ Thư viện ảnh
-        <small>tải lên & đánh giá</small>
+        <small>đồng bộ đám mây</small>
+        <span class="sync-status" id="syncStatus">🔄 Đang kết nối...</span>
     </h1>
 
     <div class="upload-area">
@@ -291,82 +418,274 @@
             <input type="file" id="fileInput" accept="image/*" multiple />
         </label>
         <span class="file-count" id="fileCount">0 ảnh</span>
-        <div class="storage-info">
-            <span>💾 Lưu tự động trong trình duyệt</span>
-            <button class="clear-storage-btn" id="clearStorageBtn">🗑️ Xóa tất cả dữ liệu</button>
-        </div>
+    </div>
+
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="spinner"></div>
+        <p>Đang tải dữ liệu từ đám mây...</p>
     </div>
 
     <div class="gallery" id="galleryContainer">
         <div class="empty-message">✨ Chưa có ảnh nào. Hãy tải lên những bức ảnh đầu tiên!</div>
     </div>
     <div class="footer-note">
-        ⭐ Nhấn vào ảnh để mở phần đánh giá · Dữ liệu được lưu tự động trong trình duyệt của bạn
+        ⭐ Nhấn vào ảnh để xem to hơn · Dữ liệu được đồng bộ trên đám mây
+    </div>
+</div>
+
+<!-- ===== MODAL XEM ẢNH TO ===== -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <button class="modal-close" onclick="closeModal()">✕</button>
+        <img id="modalImage" src="" alt="Ảnh phóng to" />
+        <div class="modal-info">
+            <div class="modal-name" id="modalName">Tên ảnh</div>
+            <div class="modal-rating" id="modalRating">⭐ 0/5</div>
+            <div class="modal-review" id="modalReview">Chưa có nhận xét</div>
+        </div>
     </div>
 </div>
 
 <script>
     (function() {
-        // ---------- STATE ----------
-        let photos = [];
-        let nextId = 1;
+        // =============================================
+        // 1. CẤU HÌNH FIREBASE
+        // =============================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyAVEmbUKmOMJA_E3WYJxJV4rBXGZKyavSI",
+            authDomain: "photo-4dc90.firebaseapp.com",
+            projectId: "photo-4dc90",
+            storageBucket: "photo-4dc90.firebasestorage.app",
+            messagingSenderId: "66023765491",
+            appId: "1:66023765491:web:b49696fb2c79bb30620e86"
+        };
 
-        // DOM refs
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        
+        db.enablePersistence()
+            .then(() => console.log('✅ Offline persistence enabled'))
+            .catch(err => console.warn('⚠️ Offline persistence error:', err));
+
+        // =============================================
+        // 2. BIẾN TOÀN CỤ
+        // =============================================
+        const COLLECTION_NAME = 'photos';
+        let photos = [];
+        let unsubscribe = null;
+
         const gallery = document.getElementById('galleryContainer');
         const fileInput = document.getElementById('fileInput');
         const fileCount = document.getElementById('fileCount');
-        const clearStorageBtn = document.getElementById('clearStorageBtn');
+        const syncStatus = document.getElementById('syncStatus');
+        const loadingOverlay = document.getElementById('loadingOverlay');
 
-        // ---------- LOCAL STORAGE ----------
-        const STORAGE_KEY = 'photoGalleryData';
+        // Modal elements
+        const modalOverlay = document.getElementById('modalOverlay');
+        const modalImage = document.getElementById('modalImage');
+        const modalName = document.getElementById('modalName');
+        const modalRating = document.getElementById('modalRating');
+        const modalReview = document.getElementById('modalReview');
 
-        function saveToStorage() {
-            try {
-                // Chỉ lưu những dữ liệu cần thiết, không lưu quá nhiều (có thể giới hạn dung lượng)
-                const dataToSave = photos.map(p => ({
-                    id: p.id,
-                    name: p.name,
-                    src: p.src, // base64 string
-                    rating: p.rating,
-                    review: p.review
-                }));
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
-            } catch (e) {
-                console.warn('Không thể lưu vào localStorage (có thể đã đầy dung lượng):', e);
+        // =============================================
+        // 3. HÀM HIỆN MODAL
+        // =============================================
+        window.openModal = function(photoId) {
+            const photo = photos.find(p => p.id === photoId);
+            if (!photo) return;
+
+            modalImage.src = photo.src;
+            modalImage.alt = photo.name;
+            modalName.textContent = '📎 ' + photo.name;
+            
+            const stars = '⭐'.repeat(photo.rating) + '☆'.repeat(5 - photo.rating);
+            modalRating.textContent = stars + ' ' + photo.rating + '/5';
+            
+            modalReview.textContent = photo.review && photo.review.trim() !== '' 
+                ? '💬 "' + photo.review + '"' 
+                : '📝 Chưa có nhận xét';
+
+            modalOverlay.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        };
+
+        window.closeModal = function(e) {
+            if (e && e.target !== e.currentTarget) return;
+            modalOverlay.classList.remove('active');
+            document.body.style.overflow = '';
+        };
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeModal();
+            }
+        });
+
+        // =============================================
+        // 4. HÀM ĐỒNG BỘ VỚI FIRESTORE
+        // =============================================
+        function updateSyncStatus(status, message) {
+            syncStatus.textContent = message || status;
+            syncStatus.className = 'sync-status';
+            if (status === 'synced') {
+                syncStatus.classList.add('synced');
+                syncStatus.textContent = '✅ Đã đồng bộ';
+            } else if (status === 'error') {
+                syncStatus.classList.add('error');
+                syncStatus.textContent = '❌ ' + (message || 'Lỗi kết nối');
+            } else if (status === 'loading') {
+                syncStatus.textContent = '🔄 ' + (message || 'Đang đồng bộ...');
             }
         }
 
-        function loadFromStorage() {
-            try {
-                const stored = localStorage.getItem(STORAGE_KEY);
-                if (!stored) return false;
-                
-                const parsed = JSON.parse(stored);
-                if (!Array.isArray(parsed) || parsed.length === 0) return false;
-                
-                photos = parsed;
-                // Tìm nextId lớn nhất
-                let maxId = 0;
-                photos.forEach(p => {
-                    if (p.id > maxId) maxId = p.id;
+        function listenToFirestore() {
+            loadingOverlay.classList.add('active');
+            updateSyncStatus('loading', 'Đang tải dữ liệu...');
+
+            if (unsubscribe) {
+                unsubscribe();
+                unsubscribe = null;
+            }
+
+            unsubscribe = db.collection(COLLECTION_NAME)
+                .orderBy('createdAt', 'desc')
+                .onSnapshot((snapshot) => {
+                    loadingOverlay.classList.remove('active');
+                    
+                    if (snapshot.empty) {
+                        photos = [];
+                        renderGallery();
+                        updateSyncStatus('synced');
+                        return;
+                    }
+
+                    const newPhotos = [];
+                    snapshot.forEach((doc) => {
+                        const data = doc.data();
+                        newPhotos.push({
+                            id: doc.id,
+                            name: data.name || 'Không tên',
+                            src: data.src || '',
+                            rating: data.rating || 0,
+                            review: data.review || '',
+                            createdAt: data.createdAt || new Date()
+                        });
+                    });
+
+                    photos = newPhotos;
+                    renderGallery();
+                    updateSyncStatus('synced');
+                    
+                }, (error) => {
+                    console.error('Firestore error:', error);
+                    loadingOverlay.classList.remove('active');
+                    updateSyncStatus('error', error.message);
+                    
+                    setTimeout(() => {
+                        if (!unsubscribe) {
+                            listenToFirestore();
+                        }
+                    }, 5000);
                 });
-                nextId = maxId + 1;
-                return true;
-            } catch (e) {
-                console.warn('Không thể đọc dữ liệu từ localStorage:', e);
-                return false;
+        }
+
+        // =============================================
+        // 5. THÊM ẢNH MỚI LÊN FIRESTORE
+        // =============================================
+        function uploadPhotosToFirestore(files) {
+            if (!files || files.length === 0) return;
+
+            const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+            if (imageFiles.length === 0) {
+                alert('Vui lòng chọn file ảnh (jpg, png, gif, webp...)');
+                return;
             }
+
+            let uploaded = 0;
+            const total = imageFiles.length;
+            updateSyncStatus('loading', `Đang tải lên ${total} ảnh...`);
+
+            imageFiles.forEach((file) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const src = e.target.result;
+                    
+                    db.collection(COLLECTION_NAME).add({
+                        name: file.name,
+                        src: src,
+                        rating: 0,
+                        review: '',
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    })
+                    .then(() => {
+                        uploaded++;
+                        if (uploaded === total) {
+                            updateSyncStatus('synced');
+                            fileInput.value = '';
+                        }
+                    })
+                    .catch((error) => {
+                        console.error('Lỗi upload:', error);
+                        uploaded++;
+                        if (uploaded === total) {
+                            updateSyncStatus('error', 'Lỗi tải lên một số ảnh');
+                            fileInput.value = '';
+                        }
+                    });
+                };
+                reader.onerror = function() {
+                    console.warn('Không đọc được file:', file.name);
+                    uploaded++;
+                    if (uploaded === total) {
+                        updateSyncStatus('error', 'Lỗi đọc file');
+                        fileInput.value = '';
+                    }
+                };
+                reader.readAsDataURL(file);
+            });
         }
 
-        function clearAllData() {
-            if (!confirm('Bạn có chắc muốn xóa TẤT CẢ ảnh và đánh giá đã lưu?')) return;
-            localStorage.removeItem(STORAGE_KEY);
-            photos = [];
-            nextId = 1;
-            renderGallery();
+        // =============================================
+        // 6. CẬP NHẬT DỮ LIỆU
+        // =============================================
+        function updatePhotoField(photoId, field, value) {
+            db.collection(COLLECTION_NAME).doc(photoId).update({
+                [field]: value
+            })
+            .then(() => {
+                console.log(`✅ Updated ${field} for ${photoId}`);
+            })
+            .catch((error) => {
+                console.error('Lỗi cập nhật:', error);
+                updateSyncStatus('error', 'Lỗi cập nhật dữ liệu');
+                setTimeout(() => {
+                    db.collection(COLLECTION_NAME).doc(photoId).update({
+                        [field]: value
+                    }).catch(err => console.error('Retry failed:', err));
+                }, 2000);
+            });
         }
 
-        // ---------- RENDER ----------
+        // =============================================
+        // 7. XÓA ẢNH
+        // =============================================
+        function deletePhoto(photoId, photoName) {
+            if (!confirm(`Xóa ảnh "${photoName}" ?`)) return;
+
+            db.collection(COLLECTION_NAME).doc(photoId).delete()
+                .then(() => {
+                    console.log('✅ Đã xóa ảnh');
+                    updateSyncStatus('synced');
+                })
+                .catch((error) => {
+                    console.error('Lỗi xóa:', error);
+                    updateSyncStatus('error', 'Lỗi xóa ảnh');
+                });
+        }
+
+        // =============================================
+        // 8. RENDER GALLERY
+        // =============================================
         function renderGallery() {
             if (photos.length === 0) {
                 gallery.innerHTML = `<div class="empty-message">✨ Chưa có ảnh nào. Hãy tải lên những bức ảnh đầu tiên!</div>`;
@@ -389,13 +708,13 @@
 
                 html += `
                     <div class="photo-card" data-id="${photo.id}">
-                        <img src="${photo.src}" alt="${photo.name}" loading="lazy" />
+                        <img src="${photo.src}" alt="${photo.name}" loading="lazy" onclick="openModal('${photo.id}')" />
                         <div class="card-body">
                             <div class="photo-name" title="${photo.name}">📎 ${photo.name}</div>
                             <div class="rating-section">
                                 <div class="rating-stars">
                                     ${starsHtml}
-                                    <span class="rating-value" id="ratingLabel-${photo.id}">${photo.rating || 0}★</span>
+                                    <span class="rating-value">${photo.rating || 0}★</span>
                                 </div>
                                 <textarea class="review-textarea" placeholder="Viết cảm nhận về ảnh..." data-id="${photo.id}">${reviewText}</textarea>
                             </div>
@@ -410,153 +729,80 @@
             gallery.innerHTML = html;
         }
 
-        // ---------- THÊM ẢNH ----------
-        function addPhotos(files) {
-            if (!files || files.length === 0) return;
-
-            const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
-            if (imageFiles.length === 0) {
-                alert('Vui lòng chọn file ảnh (jpg, png, gif, webp...)');
-                return;
-            }
-
-            let loaded = 0;
-            const total = imageFiles.length;
-
-            imageFiles.forEach((file) => {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const src = e.target.result;
-                    photos.push({
-                        id: nextId++,
-                        name: file.name,
-                        src: src,
-                        rating: 0,
-                        review: ''
-                    });
-
-                    loaded++;
-                    if (loaded === total) {
-                        saveToStorage();      // Lưu vào localStorage
-                        renderGallery();
-                        fileInput.value = '';
-                    }
-                };
-                reader.onerror = function() {
-                    console.warn('Không đọc được file:', file.name);
-                    loaded++;
-                    if (loaded === total) {
-                        saveToStorage();
-                        renderGallery();
-                        fileInput.value = '';
-                    }
-                };
-                reader.readAsDataURL(file);
-            });
-        }
-
-        // ---------- XỬ LÝ SỰ KIỆN ----------
+        // =============================================
+        // 9. XỬ LÝ SỰ KIỆN
+        // =============================================
         function handleGalleryClick(e) {
             const target = e.target;
 
             // Xóa ảnh
             if (target.classList.contains('delete-btn')) {
-                const id = Number(target.dataset.id);
+                const id = target.dataset.id;
                 if (!id) return;
                 const photo = photos.find(p => p.id === id);
                 if (!photo) return;
-                if (confirm(`Xóa ảnh "${photo.name}" ?`)) {
-                    photos = photos.filter(p => p.id !== id);
-                    saveToStorage();
-                    renderGallery();
-                }
+                target.classList.add('loading');
+                deletePhoto(id, photo.name);
                 return;
             }
 
             // Đánh giá sao
             if (target.classList.contains('star-btn')) {
-                const id = Number(target.dataset.id);
+                const id = target.dataset.id;
                 const starValue = Number(target.dataset.star);
                 if (!id || !starValue) return;
 
                 const photo = photos.find(p => p.id === id);
                 if (!photo) return;
 
-                if (photo.rating === starValue) {
-                    photo.rating = 0;
-                } else {
-                    photo.rating = starValue;
-                }
-
-                saveToStorage();
+                const newRating = (photo.rating === starValue) ? 0 : starValue;
+                target.classList.add('loading');
+                
+                photo.rating = newRating;
                 renderGallery();
+                
+                updatePhotoField(id, 'rating', newRating);
                 return;
-            }
-
-            // Nhấn vào ảnh -> focus textarea
-            if (target.tagName === 'IMG') {
-                const card = target.closest('.photo-card');
-                if (!card) return;
-                const textarea = card.querySelector('.review-textarea');
-                if (textarea) {
-                    textarea.focus();
-                    textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
             }
         }
 
-        // Lưu review khi thay đổi
-        function handleReviewChange(e) {
+        // =============================================
+        // 10. LƯU REVIEW - FIX LỖI MẤT FOCUS
+        // =============================================
+        let reviewTimeout = null;
+        
+        function handleReviewInput(e) {
             const target = e.target;
             if (!target.classList.contains('review-textarea')) return;
 
-            const id = Number(target.dataset.id);
+            const id = target.dataset.id;
             if (!id) return;
 
             const photo = photos.find(p => p.id === id);
             if (!photo) return;
 
-            photo.review = target.value;
-            saveToStorage(); // Lưu ngay khi người dùng nhập
+            const newReview = target.value;
+            photo.review = newReview;
+            
+            // Clear timeout cũ và set timeout mới
+            clearTimeout(reviewTimeout);
+            reviewTimeout = setTimeout(() => {
+                updatePhotoField(id, 'review', newReview);
+            }, 800); // Tăng lên 800ms để tránh gọi quá nhiều
         }
 
-        // ---------- FILE INPUT ----------
+        // =============================================
+        // 11. KHỞI TẠO
+        // =============================================
+        
         fileInput.addEventListener('change', function(e) {
-            addPhotos(e.target.files);
+            uploadPhotosToFirestore(e.target.files);
         });
 
-        // ---------- XÓA TOÀN BỘ DỮ LIỆU ----------
-        clearStorageBtn.addEventListener('click', clearAllData);
-
-        // ---------- GẮN SỰ KIỆN ----------
         gallery.addEventListener('click', handleGalleryClick);
+        // CHỈ DÙNG SỰ KIỆN 'input' - KHÔNG DÙNG 'blur' nữa
+        gallery.addEventListener('input', handleReviewInput);
 
-        // Lưu review khi nhập (thay vì chỉ blur)
-        gallery.addEventListener('input', function(e) {
-            if (e.target.classList.contains('review-textarea')) {
-                handleReviewChange(e);
-            }
-        });
-
-        gallery.addEventListener('blur', function(e) {
-            if (e.target.classList.contains('review-textarea')) {
-                handleReviewChange(e);
-            }
-        }, true);
-
-        // ---------- KHỞI TẠO ----------
-        // Thử load dữ liệu từ localStorage
-        const hasStoredData = loadFromStorage();
-        renderGallery();
-
-        if (!hasStoredData) {
-            // Nếu không có dữ liệu, có thể thêm ảnh mẫu (tùy chọn)
-            console.log('📸 Chưa có dữ liệu lưu trữ. Hãy tải ảnh lên!');
-        } else {
-            console.log(`✅ Đã khôi phục ${photos.length} ảnh từ bộ nhớ trình duyệt.`);
-        }
-
-        // Hỗ trợ kéo thả file (Drag and Drop)
         const uploadArea = document.querySelector('.upload-area');
         uploadArea.addEventListener('dragover', (e) => {
             e.preventDefault();
@@ -573,11 +819,15 @@
             uploadArea.style.background = '#ffffffcc';
             const files = e.dataTransfer.files;
             if (files && files.length > 0) {
-                addPhotos(files);
+                uploadPhotosToFirestore(files);
             }
         });
 
-        console.log('💾 Dữ liệu được lưu tự động trong localStorage của trình duyệt.');
+        listenToFirestore();
+
+        console.log('☁️ Đang kết nối với Firestore...');
+        console.log('📸 Dữ liệu sẽ được đồng bộ trên đám mây!');
+        console.log('✅ Đã fix lỗi nhập nhận xét!');
     })();
 </script>
 
