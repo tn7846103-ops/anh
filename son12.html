@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>📸 Tải ảnh lên & Đánh giá (có lưu trữ)</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+            background: linear-gradient(145deg, #f5f7fa 0%, #e9edf2 100%);
+            min-height: 100vh;
+            padding: 2rem 1rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            max-width: 1300px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(4px);
+            border-radius: 48px;
+            padding: 2rem 2rem 3rem;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1), 0 6px 12px rgba(0,0,0,0.05);
+        }
+        h1 {
+            font-weight: 600;
+            font-size: 2.6rem;
+            letter-spacing: -0.5px;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 0.5rem;
+            flex-wrap: wrap;
+        }
+        h1 small {
+            font-size: 1rem;
+            font-weight: 400;
+            color: #475569;
+            margin-left: 8px;
+        }
+        .upload-area {
+            background: #ffffffcc;
+            backdrop-filter: blur(2px);
+            border: 2px dashed #94a3b8;
+            border-radius: 40px;
+            padding: 2rem 2rem;
+            margin: 1.8rem 0 2.2rem;
+            transition: 0.2s;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .upload-area:hover {
+            border-color: #3b82f6;
+            background: #f8fafc;
+        }
+        .upload-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            background: #1e293b;
+            color: white;
+            padding: 12px 28px;
+            border-radius: 60px;
+            font-weight: 500;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: 0.15s;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+        }
+        .upload-label:hover {
+            background: #0f172a;
+            transform: scale(1.02);
+        }
+        .upload-label input {
+            display: none;
+        }
+        .file-count {
+            background: #e2e8f0;
+            padding: 8px 22px;
+            border-radius: 40px;
+            color: #1e293b;
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+        .storage-info {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-top: 8px;
+            width: 100%;
+            justify-content: center;
+        }
+        .storage-info span {
+            background: #dbeafe;
+            color: #1e40af;
+            padding: 4px 16px;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        .clear-storage-btn {
+            background: none;
+            border: 1px solid #cbd5e1;
+            padding: 4px 16px;
+            border-radius: 30px;
+            color: #64748b;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: 0.15s;
+        }
+        .clear-storage-btn:hover {
+            background: #fee2e2;
+            border-color: #ef4444;
+            color: #b91c1c;
+        }
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 2rem 1.8rem;
+            margin-top: 1rem;
+        }
+        .photo-card {
+            background: white;
+            border-radius: 28px;
+            overflow: hidden;
+            box-shadow: 0 10px 20px -8px rgba(0,0,0,0.12);
+            transition: transform 0.15s ease, box-shadow 0.2s;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #ffffff70;
+            backdrop-filter: blur(2px);
+        }
+        .photo-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 20px 30px -12px rgba(0,0,0,0.2);
+        }
+        .photo-card img {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            object-fit: cover;
+            display: block;
+            background: #d1d9e6;
+            cursor: pointer;
+            transition: 0.1s;
+            border-bottom: 2px solid #f1f5f9;
+        }
+        .photo-card img:active {
+            opacity: 0.7;
+        }
+        .card-body {
+            padding: 1.2rem 1.2rem 1.5rem;
+            background: white;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .photo-name {
+            font-weight: 600;
+            color: #0f172a;
+            font-size: 0.95rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .rating-section {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 4px;
+        }
+        .rating-stars {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .star-btn {
+            background: none;
+            border: none;
+            font-size: 1.9rem;
+            line-height: 1;
+            padding: 0 2px;
+            cursor: pointer;
+            color: #cbd5e1;
+            transition: 0.1s;
+        }
+        .star-btn.active {
+            color: #fbbf24;
+            text-shadow: 0 0 6px #f59e0b50;
+        }
+        .star-btn:hover {
+            transform: scale(1.2);
+            color: #f59e0b;
+        }
+        .rating-value {
+            font-weight: 500;
+            color: #1e293b;
+            background: #f1f5f9;
+            padding: 2px 14px;
+            border-radius: 30px;
+            font-size: 0.9rem;
+            margin-left: 4px;
+        }
+        .review-textarea {
+            width: 100%;
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+            padding: 10px 14px;
+            font-family: inherit;
+            font-size: 0.9rem;
+            resize: vertical;
+            min-height: 55px;
+            transition: 0.15s;
+            background: #f8fafc;
+        }
+        .review-textarea:focus {
+            outline: 2px solid #3b82f6;
+            background: white;
+            border-color: transparent;
+        }
+        .review-textarea::placeholder {
+            color: #94a3b8;
+        }
+        .card-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 4px;
+        }
+        .delete-btn {
+            background: none;
+            border: none;
+            color: #94a3b8;
+            font-size: 0.85rem;
+            padding: 4px 12px;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: 0.1s;
+            font-weight: 500;
+        }
+        .delete-btn:hover {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+        .empty-message {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 4rem 0;
+            color: #64748b;
+            font-size: 1.2rem;
+            background: #f1f5f9;
+            border-radius: 60px;
+        }
+        .footer-note {
+            margin-top: 2.5rem;
+            color: #475569;
+            font-size: 0.9rem;
+            text-align: center;
+            border-top: 1px solid #d1d9e6;
+            padding-top: 2rem;
+            opacity: 0.8;
+        }
+        @media (max-width: 640px) {
+            .container { padding: 1.5rem 1rem; }
+            .upload-area { flex-direction: column; gap: 16px; align-items: stretch; }
+            .upload-label { justify-content: center; }
+            .file-count { text-align: center; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>
+        🖼️ Thư viện ảnh
+        <small>tải lên & đánh giá</small>
+    </h1>
+
+    <div class="upload-area">
+        <label class="upload-label" for="fileInput">
+            <span>📤</span> Chọn ảnh
+            <input type="file" id="fileInput" accept="image/*" multiple />
+        </label>
+        <span class="file-count" id="fileCount">0 ảnh</span>
+        <div class="storage-info">
+            <span>💾 Lưu tự động trong trình duyệt</span>
+            <button class="clear-storage-btn" id="clearStorageBtn">🗑️ Xóa tất cả dữ liệu</button>
+        </div>
+    </div>
+
+    <div class="gallery" id="galleryContainer">
+        <div class="empty-message">✨ Chưa có ảnh nào. Hãy tải lên những bức ảnh đầu tiên!</div>
+    </div>
+    <div class="footer-note">
+        ⭐ Nhấn vào ảnh để mở phần đánh giá · Dữ liệu được lưu tự động trong trình duyệt của bạn
+    </div>
+</div>
+
+<script>
+    (function() {
+        // ---------- STATE ----------
+        let photos = [];
+        let nextId = 1;
+
+        // DOM refs
+        const gallery = document.getElementById('galleryContainer');
+        const fileInput = document.getElementById('fileInput');
+        const fileCount = document.getElementById('fileCount');
+        const clearStorageBtn = document.getElementById('clearStorageBtn');
+
+        // ---------- LOCAL STORAGE ----------
+        const STORAGE_KEY = 'photoGalleryData';
+
+        function saveToStorage() {
+            try {
+                // Chỉ lưu những dữ liệu cần thiết, không lưu quá nhiều (có thể giới hạn dung lượng)
+                const dataToSave = photos.map(p => ({
+                    id: p.id,
+                    name: p.name,
+                    src: p.src, // base64 string
+                    rating: p.rating,
+                    review: p.review
+                }));
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+            } catch (e) {
+                console.warn('Không thể lưu vào localStorage (có thể đã đầy dung lượng):', e);
+            }
+        }
+
+        function loadFromStorage() {
+            try {
+                const stored = localStorage.getItem(STORAGE_KEY);
+                if (!stored) return false;
+                
+                const parsed = JSON.parse(stored);
+                if (!Array.isArray(parsed) || parsed.length === 0) return false;
+                
+                photos = parsed;
+                // Tìm nextId lớn nhất
+                let maxId = 0;
+                photos.forEach(p => {
+                    if (p.id > maxId) maxId = p.id;
+                });
+                nextId = maxId + 1;
+                return true;
+            } catch (e) {
+                console.warn('Không thể đọc dữ liệu từ localStorage:', e);
+                return false;
+            }
+        }
+
+        function clearAllData() {
+            if (!confirm('Bạn có chắc muốn xóa TẤT CẢ ảnh và đánh giá đã lưu?')) return;
+            localStorage.removeItem(STORAGE_KEY);
+            photos = [];
+            nextId = 1;
+            renderGallery();
+        }
+
+        // ---------- RENDER ----------
+        function renderGallery() {
+            if (photos.length === 0) {
+                gallery.innerHTML = `<div class="empty-message">✨ Chưa có ảnh nào. Hãy tải lên những bức ảnh đầu tiên!</div>`;
+                fileCount.textContent = '0 ảnh';
+                return;
+            }
+
+            fileCount.textContent = `${photos.length} ảnh`;
+
+            let html = '';
+            photos.forEach((photo) => {
+                let starsHtml = '';
+                const maxStars = 5;
+                for (let i = 1; i <= maxStars; i++) {
+                    const activeClass = (photo.rating >= i) ? 'active' : '';
+                    starsHtml += `<button class="star-btn ${activeClass}" data-id="${photo.id}" data-star="${i}">★</button>`;
+                }
+
+                const reviewText = photo.review || '';
+
+                html += `
+                    <div class="photo-card" data-id="${photo.id}">
+                        <img src="${photo.src}" alt="${photo.name}" loading="lazy" />
+                        <div class="card-body">
+                            <div class="photo-name" title="${photo.name}">📎 ${photo.name}</div>
+                            <div class="rating-section">
+                                <div class="rating-stars">
+                                    ${starsHtml}
+                                    <span class="rating-value" id="ratingLabel-${photo.id}">${photo.rating || 0}★</span>
+                                </div>
+                                <textarea class="review-textarea" placeholder="Viết cảm nhận về ảnh..." data-id="${photo.id}">${reviewText}</textarea>
+                            </div>
+                            <div class="card-actions">
+                                <button class="delete-btn" data-id="${photo.id}">🗑️ Xóa ảnh</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            gallery.innerHTML = html;
+        }
+
+        // ---------- THÊM ẢNH ----------
+        function addPhotos(files) {
+            if (!files || files.length === 0) return;
+
+            const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+            if (imageFiles.length === 0) {
+                alert('Vui lòng chọn file ảnh (jpg, png, gif, webp...)');
+                return;
+            }
+
+            let loaded = 0;
+            const total = imageFiles.length;
+
+            imageFiles.forEach((file) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const src = e.target.result;
+                    photos.push({
+                        id: nextId++,
+                        name: file.name,
+                        src: src,
+                        rating: 0,
+                        review: ''
+                    });
+
+                    loaded++;
+                    if (loaded === total) {
+                        saveToStorage();      // Lưu vào localStorage
+                        renderGallery();
+                        fileInput.value = '';
+                    }
+                };
+                reader.onerror = function() {
+                    console.warn('Không đọc được file:', file.name);
+                    loaded++;
+                    if (loaded === total) {
+                        saveToStorage();
+                        renderGallery();
+                        fileInput.value = '';
+                    }
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // ---------- XỬ LÝ SỰ KIỆN ----------
+        function handleGalleryClick(e) {
+            const target = e.target;
+
+            // Xóa ảnh
+            if (target.classList.contains('delete-btn')) {
+                const id = Number(target.dataset.id);
+                if (!id) return;
+                const photo = photos.find(p => p.id === id);
+                if (!photo) return;
+                if (confirm(`Xóa ảnh "${photo.name}" ?`)) {
+                    photos = photos.filter(p => p.id !== id);
+                    saveToStorage();
+                    renderGallery();
+                }
+                return;
+            }
+
+            // Đánh giá sao
+            if (target.classList.contains('star-btn')) {
+                const id = Number(target.dataset.id);
+                const starValue = Number(target.dataset.star);
+                if (!id || !starValue) return;
+
+                const photo = photos.find(p => p.id === id);
+                if (!photo) return;
+
+                if (photo.rating === starValue) {
+                    photo.rating = 0;
+                } else {
+                    photo.rating = starValue;
+                }
+
+                saveToStorage();
+                renderGallery();
+                return;
+            }
+
+            // Nhấn vào ảnh -> focus textarea
+            if (target.tagName === 'IMG') {
+                const card = target.closest('.photo-card');
+                if (!card) return;
+                const textarea = card.querySelector('.review-textarea');
+                if (textarea) {
+                    textarea.focus();
+                    textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+        }
+
+        // Lưu review khi thay đổi
+        function handleReviewChange(e) {
+            const target = e.target;
+            if (!target.classList.contains('review-textarea')) return;
+
+            const id = Number(target.dataset.id);
+            if (!id) return;
+
+            const photo = photos.find(p => p.id === id);
+            if (!photo) return;
+
+            photo.review = target.value;
+            saveToStorage(); // Lưu ngay khi người dùng nhập
+        }
+
+        // ---------- FILE INPUT ----------
+        fileInput.addEventListener('change', function(e) {
+            addPhotos(e.target.files);
+        });
+
+        // ---------- XÓA TOÀN BỘ DỮ LIỆU ----------
+        clearStorageBtn.addEventListener('click', clearAllData);
+
+        // ---------- GẮN SỰ KIỆN ----------
+        gallery.addEventListener('click', handleGalleryClick);
+
+        // Lưu review khi nhập (thay vì chỉ blur)
+        gallery.addEventListener('input', function(e) {
+            if (e.target.classList.contains('review-textarea')) {
+                handleReviewChange(e);
+            }
+        });
+
+        gallery.addEventListener('blur', function(e) {
+            if (e.target.classList.contains('review-textarea')) {
+                handleReviewChange(e);
+            }
+        }, true);
+
+        // ---------- KHỞI TẠO ----------
+        // Thử load dữ liệu từ localStorage
+        const hasStoredData = loadFromStorage();
+        renderGallery();
+
+        if (!hasStoredData) {
+            // Nếu không có dữ liệu, có thể thêm ảnh mẫu (tùy chọn)
+            console.log('📸 Chưa có dữ liệu lưu trữ. Hãy tải ảnh lên!');
+        } else {
+            console.log(`✅ Đã khôi phục ${photos.length} ảnh từ bộ nhớ trình duyệt.`);
+        }
+
+        // Hỗ trợ kéo thả file (Drag and Drop)
+        const uploadArea = document.querySelector('.upload-area');
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.style.borderColor = '#3b82f6';
+            uploadArea.style.background = '#f0f7ff';
+        });
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.style.borderColor = '#94a3b8';
+            uploadArea.style.background = '#ffffffcc';
+        });
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.style.borderColor = '#94a3b8';
+            uploadArea.style.background = '#ffffffcc';
+            const files = e.dataTransfer.files;
+            if (files && files.length > 0) {
+                addPhotos(files);
+            }
+        });
+
+        console.log('💾 Dữ liệu được lưu tự động trong localStorage của trình duyệt.');
+    })();
+</script>
+
+</body>
+</html>
